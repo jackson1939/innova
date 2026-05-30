@@ -1,0 +1,52 @@
+/**
+ * Google Cloud Vision OCR — extracts text from image URLs
+ */
+export async function extraerTextoDeImagen(imageUrl: string): Promise<string> {
+  const apiKey = process.env.GOOGLE_VISION_API_KEY;
+  if (!apiKey) return '';
+
+  try {
+    const res = await fetch(
+      `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requests: [
+            {
+              image: { source: { imageUri: imageUrl } },
+              features: [{ type: 'TEXT_DETECTION', maxResults: 1 }],
+            },
+          ],
+        }),
+      }
+    );
+
+    if (!res.ok) return '';
+
+    const data = await res.json() as {
+      responses: { fullTextAnnotation?: { text: string } }[];
+    };
+    return data.responses?.[0]?.fullTextAnnotation?.text ?? '';
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Process multiple image URLs and concatenate their OCR text
+ */
+export async function extraerTextoDeImagenes(
+  imageUrls: string[]
+): Promise<string> {
+  if (!imageUrls || imageUrls.length === 0) return '';
+
+  const resultados = await Promise.allSettled(
+    imageUrls.map((url) => extraerTextoDeImagen(url))
+  );
+
+  return resultados
+    .map((r) => (r.status === 'fulfilled' ? r.value : ''))
+    .filter(Boolean)
+    .join('\n\n---\n\n');
+}
